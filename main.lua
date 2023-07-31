@@ -7,6 +7,9 @@ _G.sys = require "sys"
 _G.udpsrv = require "udpsrv"
 _G.motor = require "W801-CAR"
 _G.Blink = require "Blink"
+_G.magwick = require "magwick"
+
+local imu_mag = magwick:new()
 
 sys.taskInit(function()
     local device_id = mcu.unique_id():toHex()
