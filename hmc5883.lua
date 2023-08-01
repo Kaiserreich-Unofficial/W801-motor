@@ -74,11 +74,6 @@ function hmc5883l_read()
         z_data = -(0xFFFF - z_data+ 1)
     end
 
-    --以HMC5883L的x轴正方向为机体x轴正方向，y轴正方向为机体y轴负向，建立机体坐标系
-    --根据惯导模块上HMC5883L的安装方向，y轴和z轴正方向需取反
-    y_data = -y_data
-    z_data = -z_data
-
     local Angle= math.atan2(y_data,x_data) --单位：弧度(rad)
 
     return Angle,x_data,y_data,z_data

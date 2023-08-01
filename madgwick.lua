@@ -5,11 +5,11 @@ _G.sys = require "sys"
 local deg2rad = math.pi / 180 -- 角度转弧度的系数
 
 -- 定义 madgwick 梯度下降姿态解算算法新实例
-function madgwick:new(sampleFreq, betaDef, gammaDef)
+function madgwick:new(dt, betaDef, gammaDef)
     local obj = {}
-    obj.sampleFreq = sampleFreq or 10 -- 采样频率，单位为Hz
-    obj.beta = betaDef or 0.041 -- 梯度下降算法的参数
-    obj.gamma = gammaDef or 0.003 -- 磁力计数据的权重
+    obj.dt = dt or 120 -- 采样间隔时间，单位为 ms
+    obj.beta = betaDef or 0.1 -- 梯度下降算法的参数
+    obj.gamma = gammaDef or 0.01 -- 磁力计数据的权重
     obj.q0 = 1 -- 四元数的第一个分量
     obj.q1 = 0 -- 四元数的第二个分量
     obj.q2 = 0 -- 四元数的第三个分量
@@ -108,11 +108,10 @@ function madgwick:updateIMU(ax, ay, az, gx, gy, gz, mx, my, mz)
     local qDot4 = 0.5 * (self.q0 * gz + self.q1 * gy - self.q2 * gx)
 
     -- 根据采样时间和一阶积分法更新四元数
-    local dt = 1 / self.sampleFreq -- 采样时间，单位为秒
-    self.q0 = self.q0 + qDot1 * dt
-    self.q1 = self.q1 + qDot2 * dt
-    self.q2 = self.q2 + qDot3 * dt
-    self.q3 = self.q3 + qDot4 * dt
+    self.q0 = self.q0 + qDot1 * self.dt/ 1000
+    self.q1 = self.q1 + qDot2 * self.dt/ 1000
+    self.q2 = self.q2 + qDot3 * self.dt/ 1000
+    self.q3 = self.q3 + qDot4 * self.dt/ 1000
 
     -- 归一化四元数，保证其模长为1
     local n = self:norm(self.q0, self.q1, self.q2, self.q3)

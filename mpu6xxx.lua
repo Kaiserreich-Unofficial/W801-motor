@@ -181,9 +181,9 @@ function mpu6xxx_get_accel()
         z = nil
     }
     tmp = mpu6xxx_get_accel_raw()
-    accel.z = tmp.x  / MPU6XXX_ACCEL_SEN
-    accel.x = -tmp.y  / MPU6XXX_ACCEL_SEN
-    accel.y = tmp.z  / MPU6XXX_ACCEL_SEN
+    accel.x = tmp.x  / MPU6XXX_ACCEL_SEN
+    accel.y = tmp.y  / MPU6XXX_ACCEL_SEN
+    accel.z = tmp.z  / MPU6XXX_ACCEL_SEN
     return accel
 end
 -- 获取陀螺仪的数据，单位: deg / s
@@ -194,9 +194,9 @@ function mpu6xxx_get_gyro()
         z = nil
     }
     tmp = mpu6xxx_get_gyro_raw()
-    gyro.z = tmp.x * 10 / MPU6XXX_GYRO_SEN
-    gyro.x = -tmp.y * 10 / MPU6XXX_GYRO_SEN
-    gyro.y = tmp.z * 10 / MPU6XXX_GYRO_SEN
+    gyro.x = tmp.x * 10 / MPU6XXX_GYRO_SEN
+    gyro.y = tmp.y * 10 / MPU6XXX_GYRO_SEN
+    gyro.z = tmp.z * 10 / MPU6XXX_GYRO_SEN
     return gyro
 end
 function check_i2c()

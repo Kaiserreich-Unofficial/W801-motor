@@ -12,12 +12,14 @@ require "hmc5883"
 require "mpu6xxx"
 
 imu_mag = madgwick:new()
+local deg2rad = math.pi / 180 -- 角度转弧度的系数
 
 -- 初始化GPS串口
-uart.setup(1, 115200)
+uart.setup(1, 9600)
 uart.on(1, "recv", function(id, len)
     local data = uart.read(1, 1024)
     libgnss.parse(data)
+    sys.publish("GPS_ONLINE")
 end)
 
 sys.taskInit(function()
@@ -81,11 +83,10 @@ sys.taskInit(function()
         -- 初始化hmc588配置
         hmc5883l_init()
 
-        sys.wait(100)
         local accel = mpu6xxx_get_accel()
         local gyro = mpu6xxx_get_gyro()
-        local roll = math.atan2(accel.y, accel.z)
-        local pitch = math.atan2((-accel.x), math.sqrt(accel.y ^ 2 + accel.z ^ 2))
+        local roll = math.atan2(accel.y, accel.z) / deg2rad
+        local pitch = math.atan2((-accel.x), math.sqrt(accel.y ^ 2 + accel.z ^ 2)) / deg2rad
 
         -- 读取x,y,z数值
         local yaw, mag_x, mag_y, mag_z = hmc5883l_read()
@@ -96,20 +97,26 @@ sys.taskInit(function()
         log.info("Accel", "x", accel.x, "y", accel.y, "z", accel.z)
         log.info("GYRO", "x", gyro.x, "y", gyro.y, "z", gyro.z)
         log.info("Raw_Euler", "Roll", roll, "Pitch", pitch, "Yaw", yaw)
+        log.info("Timestamp",mcu.ticks())
         log.info("madgwick_Euler", "Roll", roll1, "Pitch", pitch1, "Yaw", yaw1)
+        sys.wait(100)
     end
 end)
 
 -- GPS读数
-sys.timerLoopStart(function()
-    local rmc = libgnss.getRmc()
-    local lat, long, speed
-    if json.encode(rmc) then
-        lat, long, speed = rmc.lat * 0.01, rmc.lng * 0.01, rmc.speed * 1852 / 3600
-        log.info("Location", lat .. "N", long .. "E")
-        log.info("Speed", speed)
+sys.taskInit(function()
+    sys.waitUntil("GPS_ONLINE")
+    while 1 do
+        local rmc = libgnss.getRmc()
+        local lat, long, speed
+        if json.encode(rmc) then
+            lat, long, speed = rmc.lat * 0.01, rmc.lng * 0.01, rmc.speed * 1852 / 3600
+            log.info("Location", lat .. "N", long .. "E")
+            log.info("Speed", speed)
+        end
+        sys.wait(1000)
     end
-end, 1000)
+end)
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
