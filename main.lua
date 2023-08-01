@@ -1,5 +1,5 @@
 -- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "WLAN-TEST"
+PROJECT = "W801-MOTOR"
 VERSION = "1.0.0"
 
 -- 引入必要的库文件(lua编写), 内部库不需要require
@@ -7,9 +7,18 @@ _G.sys = require "sys"
 _G.udpsrv = require "udpsrv"
 _G.motor = require "W801-CAR"
 _G.Blink = require "Blink"
-_G.magwick = require "magwick"
+_G.madgwick = require "madgwick"
+require "hmc5883"
+require "mpu6xxx"
 
-local imu_mag = magwick:new()
+imu_mag = madgwick:new()
+
+-- 初始化GPS串口
+uart.setup(1, 115200)
+uart.on(1, "recv", function(id, len)
+    local data = uart.read(1, 1024)
+    libgnss.parse(data)
+end)
 
 sys.taskInit(function()
     local device_id = mcu.unique_id():toHex()
@@ -64,6 +73,43 @@ sys.subscribe("NTP_ERROR", function()
     log.info("socket", "sntp error")
     socket.sntp()
 end)
+
+-- 加速度计读数
+sys.taskInit(function()
+    init_mpu6050() -- 有wait不能放在外面
+    while 1 do
+        -- 初始化hmc588配置
+        hmc5883l_init()
+
+        sys.wait(100)
+        local accel = mpu6xxx_get_accel()
+        local gyro = mpu6xxx_get_gyro()
+        local roll = math.atan2(accel.y, accel.z)
+        local pitch = math.atan2((-accel.x), math.sqrt(accel.y ^ 2 + accel.z ^ 2))
+
+        -- 读取x,y,z数值
+        local yaw, mag_x, mag_y, mag_z = hmc5883l_read()
+
+        -- madgwick梯度下降法解算姿态
+        local roll1, pitch1, yaw1 = imu_mag:updateIMU(accel.x, accel.y, accel.z, gyro.x, gyro.y, gyro.z, mag_x, mag_y,
+            mag_z)
+        log.info("Accel", "x", accel.x, "y", accel.y, "z", accel.z)
+        log.info("GYRO", "x", gyro.x, "y", gyro.y, "z", gyro.z)
+        log.info("Raw_Euler", "Roll", roll, "Pitch", pitch, "Yaw", yaw)
+        log.info("madgwick_Euler", "Roll", roll1, "Pitch", pitch1, "Yaw", yaw1)
+    end
+end)
+
+-- GPS读数
+sys.timerLoopStart(function()
+    local rmc = libgnss.getRmc()
+    local lat, long, speed
+    if json.encode(rmc) then
+        lat, long, speed = rmc.lat * 0.01, rmc.lng * 0.01, rmc.speed * 1852 / 3600
+        log.info("Location", lat .. "N", long .. "E")
+        log.info("Speed", speed)
+    end
+end, 1000)
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

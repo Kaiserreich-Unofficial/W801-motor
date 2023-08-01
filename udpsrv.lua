@@ -1,6 +1,6 @@
-local sys = require "sys"
+udpsrv = {}
 
-local udpsrv = {}
+_G.sys = require "sys"
 
 function udpsrv.create(port, topic, adapter)
     local srv = {}

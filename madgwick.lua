@@ -1,15 +1,15 @@
-magwick = {}
+madgwick = {}
 
 _G.sys = require "sys"
 
 local deg2rad = math.pi / 180 -- 角度转弧度的系数
 
--- 定义 Magwick 梯度下降姿态解算算法新实例
-function magwick:new(sampleFreq, betaDef, gammaDef)
+-- 定义 madgwick 梯度下降姿态解算算法新实例
+function madgwick:new(sampleFreq, betaDef, gammaDef)
     local obj = {}
-    obj.sampleFreq = sampleFreq or 100 -- 采样频率，单位为Hz
-    obj.beta = betaDef or 0.1 -- 梯度下降算法的参数
-    obj.gamma = gammaDef or 0.01 -- 磁力计数据的权重
+    obj.sampleFreq = sampleFreq or 10 -- 采样频率，单位为Hz
+    obj.beta = betaDef or 0.041 -- 梯度下降算法的参数
+    obj.gamma = gammaDef or 0.003 -- 磁力计数据的权重
     obj.q0 = 1 -- 四元数的第一个分量
     obj.q1 = 0 -- 四元数的第二个分量
     obj.q2 = 0 -- 四元数的第三个分量
@@ -20,7 +20,7 @@ function magwick:new(sampleFreq, betaDef, gammaDef)
 end
 
 -- 定义一个方法，用于计算两个向量的叉积
-function magwick:crossProduct(ax, ay, az, bx, by, bz)
+function madgwick:crossProduct(ax, ay, az, bx, by, bz)
     local cx = ay * bz - az * by
     local cy = az * bx - ax * bz
     local cz = ax * by - ay * bx
@@ -28,19 +28,19 @@ function magwick:crossProduct(ax, ay, az, bx, by, bz)
 end
 
 -- 定义一个方法，用于计算两个向量的点积
-function magwick:dotProduct(ax, ay, az, bx, by, bz)
+function madgwick:dotProduct(ax, ay, az, bx, by, bz)
     local d = ax * bx + ay * by + az * bz
     return d
 end
 
 -- 定义一个方法，用于计算向量的模长
-function magwick:norm(ax, ay, az)
+function madgwick:norm(ax, ay, az)
     local n = math.sqrt(ax * ax + ay * ay + az * az)
     return n
 end
 
 -- 定义一个方法，用于归一化向量
-function magwick:normalize(ax, ay, az)
+function madgwick:normalize(ax, ay, az)
     local n = self:norm(ax, ay, az)
     if n == 0 then
         return ax, ay, az
@@ -52,7 +52,7 @@ function magwick:normalize(ax, ay, az)
 end
 
 -- 定义一个方法，用于更新四元数和姿态角（欧拉角）
-function magwick:updateIMU(gx, gy, gz, ax, ay, az, mx, my, mz)
+function madgwick:updateIMU(ax, ay, az, gx, gy, gz, mx, my, mz)
     -- 将陀螺仪数据转换为弧度制
     gx = gx * deg2rad
     gy = gy * deg2rad
@@ -126,13 +126,13 @@ function magwick:updateIMU(gx, gy, gz, ax, ay, az, mx, my, mz)
 
     -- 根据四元数计算姿态角（欧拉角），单位为度（参考论文公式（13））
     local roll =
-        math.atan2(2 * (self.q0 * self.q1 + self.q2 * self.q3), 1 - 2 * (self.q1 * self.q1 + self.q2 * self.q2)) /
-            deg2rad
+        math.atan2(2 * (self.q0 * self.q1 + self.q2 * self.q3), 1 - 2 * (self.q1 * self.q1 + self.q2 * self.q2)) / deg2rad
     local pitch = math.asin(2 * (self.q0 * self.q2 - self.q3 * self.q1)) / deg2rad
     local yaw =
-        math.atan2(2 * (self.q0 * self.q3 + self.q1 * self.q2), 1 - 2 * (self.q2 * self.q2 + self.q3 * self.q3)) /
-            deg2rad
+        math.atan2(2 * (self.q0 * self.q3 + self.q1 * self.q2), 1 - 2 * (self.q2 * self.q2 + self.q3 * self.q3)) / deg2rad
 
     -- 返回姿态角（欧拉角）
     return roll, pitch, yaw
 end
+
+return madgwick
