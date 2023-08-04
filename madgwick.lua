@@ -7,7 +7,7 @@ local deg2rad = math.pi / 180 -- 角度转弧度的系数
 -- 定义 madgwick 梯度下降姿态解算算法新实例
 function madgwick:new(dt, betaDef, gammaDef)
     local obj = {}
-    obj.dt = dt or 120 -- 采样间隔时间，单位为 ms
+    obj.dt = dt or 20 -- 采样间隔时间，单位为 ms
     obj.beta = betaDef or 0.1 -- 梯度下降算法的参数
     obj.gamma = gammaDef or 0.01 -- 磁力计数据的权重
     obj.q0 = 1 -- 四元数的第一个分量

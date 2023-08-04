@@ -8,11 +8,14 @@ _G.udpsrv = require "udpsrv"
 _G.motor = require "W801-CAR"
 _G.Blink = require "Blink"
 _G.madgwick = require "madgwick"
-require "hmc5883"
-require "mpu6xxx"
+_G.qmc5883l = require "qmc5883l"
+_G.mpu6xxx = require "mpu6xxx"
 
 imu_mag = madgwick:new()
 local deg2rad = math.pi / 180 -- 角度转弧度的系数
+
+i2cid = 0
+i2c_speed = i2c.FAST
 
 -- 初始化GPS串口
 uart.setup(1, 9600)
@@ -78,31 +81,28 @@ end)
 
 -- 加速度计读数
 sys.taskInit(function()
-    init_mpu6050() -- 有wait不能放在外面
+    i2c.setup(i2cid,i2c_speed)
+    qmc5883l.init(i2cid)--磁力计初始化,传入i2c_id
+    mpu6xxx.init(i2cid)--IMU初始化,传入i2c_id
     while 1 do
-        -- 初始化hmc588配置
-        hmc5883l_init()
-
-        local accel = mpu6xxx_get_accel()
-        local gyro = mpu6xxx_get_gyro()
+        local accel = mpu6xxx.get_accel()--获取加速度
+        local gyro = mpu6xxx.get_gyro()--获取陀螺仪
         local roll = math.atan2(accel.y, accel.z) / deg2rad
         local pitch = math.atan2((-accel.x), math.sqrt(accel.y ^ 2 + accel.z ^ 2)) / deg2rad
 
-        -- 读取x,y,z数值
-        local yaw, mag_x, mag_y, mag_z = hmc5883l_read()
+        -- 读取磁力计数值
+        local mag = qmc5883l.get_data()
 
         -- madgwick梯度下降法解算姿态
-        local roll1, pitch1, yaw1 = imu_mag:updateIMU(accel.x, accel.y, accel.z, gyro.x, gyro.y, gyro.z, mag_x, mag_y,
-            mag_z)
+        local roll1, pitch1, yaw1 = imu_mag:updateIMU(accel.x, accel.y, accel.z, gyro.x, gyro.y, gyro.z, mag.x, mag.y, mag.z)
         log.info("Accel", "x", accel.x, "y", accel.y, "z", accel.z)
         log.info("GYRO", "x", gyro.x, "y", gyro.y, "z", gyro.z)
-        log.info("Raw_Euler", "Roll", roll, "Pitch", pitch, "Yaw", yaw)
-        log.info("Timestamp",mcu.ticks())
+        log.info("Raw_Euler", "Roll", roll, "Pitch", pitch, "Yaw", mag.yaw)
         log.info("madgwick_Euler", "Roll", roll1, "Pitch", pitch1, "Yaw", yaw1)
-        sys.wait(100)
     end
 end)
 
+--[[
 -- GPS读数
 sys.taskInit(function()
     sys.waitUntil("GPS_ONLINE")
@@ -117,7 +117,7 @@ sys.taskInit(function()
         sys.wait(1000)
     end
 end)
-
+]]
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
 sys.run()
