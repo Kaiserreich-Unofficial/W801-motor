@@ -93,12 +93,13 @@ sys.taskInit(function()
         -- 读取磁力计数值
         local mag = qmc5883l.get_data()
 
-        -- madgwick梯度下降法解算姿态
-        local roll1, pitch1, yaw1 = imu_mag:updateIMU(accel.x, accel.y, accel.z, gyro.x, gyro.y, gyro.z, mag.x, mag.y, mag.z)
         log.info("Accel", "x", accel.x, "y", accel.y, "z", accel.z)
         log.info("GYRO", "x", gyro.x, "y", gyro.y, "z", gyro.z)
         log.info("Raw_Euler", "Roll", roll, "Pitch", pitch, "Yaw", mag.yaw)
-        log.info("madgwick_Euler", "Roll", roll1, "Pitch", pitch1, "Yaw", yaw1)
+        -- madgwick梯度下降法解算姿态
+        local roll, pitch, yaw = imu_mag:update(accel.x, accel.y, accel.z, gyro.x, gyro.y, gyro.z, mag.x, mag.y, mag.z)
+        log.info("madgwick_Euler", "Roll", roll, "Pitch", pitch, "Yaw", yaw)
+        sys.wait(100)
     end
 end)
 
