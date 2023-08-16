@@ -19,7 +19,7 @@ end
 
 -- 定义一个函数，用于计算四元数对应的欧拉角（假设为Z-Y-X顺序）
 local function quatToEuler(q)
-    local declinationAngle = 0.0404
+    local declinationAngle = 0.0404 -- 磁偏角（磁北正北夹角）
     local roll = math.atan2(q[1]*q[2] + q[3]*q[4], 0.5 - q[2]^2 - q[3]^2) / deg2rad
     local pitch = math.asin(-2.0 * (q[2]*q[4] - q[1]*q[3])) / deg2rad
     local yaw = math.atan2(q[2]*q[3] + q[1]*q[4], 0.5 - q[3]^2 - q[4]^2)

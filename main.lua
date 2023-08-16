@@ -4,7 +4,7 @@ VERSION = "1.0.0"
 
 -- 引入必要的库文件(lua编写), 内部库不需要require
 _G.sys = require "sys"
-_G.udpsrv = require "udpsrv"
+-- _G.udpsrv = require "udpsrv"
 _G.motor = require "W801-CAR"
 _G.Blink = require "Blink"
 _G.madgwick = require "madgwick"
@@ -25,6 +25,9 @@ uart.on(1, "recv", function(id, len)
     sys.publish("GPS_ONLINE")
 end)
 
+-- WIFI联网部分，开启可能会导致没有内存解析GPS数据 -------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------------
+--[[
 sys.taskInit(function()
     local device_id = mcu.unique_id():toHex()
     -- wifi 联网, ESP32系列均支持
@@ -77,8 +80,11 @@ end)
 sys.subscribe("NTP_ERROR", function()
     log.info("socket", "sntp error")
     socket.sntp()
-end)
+end)]]
+-------------------------------------------------------------------------------------------------------------------------
+-- WIFI联网部分结束 ------------------------------------------------------------------------------------------------------
 
+-- 初始化 IMU 和磁力计
 sys.taskInit(function()
     i2c.setup(i2cid,i2c_speed)
     qmc5883l.init(i2cid)--磁力计初始化,传入i2c_id
@@ -118,8 +124,7 @@ sys.taskInit(function()
     end
 end)
 
---[[
--- GPS读数
+-- GPS读数据
 sys.taskInit(function()
     sys.waitUntil("GPS_ONLINE")
     while 1 do
@@ -130,9 +135,9 @@ sys.taskInit(function()
             log.info("Location", lat .. "N", long .. "E")
             log.info("Speed", speed)
         end
-        sys.wait(1000)
+        sys.wait(100)
     end
-end)]]
+end)
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
