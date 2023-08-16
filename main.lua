@@ -7,7 +7,7 @@ _G.sys = require "sys"
 _G.udpsrv = require "udpsrv"
 _G.motor = require "W801-CAR"
 _G.Blink = require "Blink"
-_G.mahony = require "mahony"
+_G.madgwick = require "madgwick"
 _G.qmc5883l = require "qmc5883l"
 _G.mpu6xxx = require "mpu6xxx"
 
@@ -88,7 +88,7 @@ sys.taskInit(function()
     -- 读取磁力计数值
     local mag = qmc5883l.get_data()
     -- 获取初始姿态四元数
-    imu_mag = mahony:new()
+    imu_mag = madgwick:new()
     imu_mag:init_q(accel,mag)
 
     sys.publish("IMU_INIT_OK")
@@ -109,11 +109,11 @@ sys.taskInit(function()
         log.info("Accel", "x", accel.x, "y", accel.y, "z", accel.z)
         log.info("GYRO", "x", gyro.x, "y", gyro.y, "z", gyro.z)
         log.info("Raw_Euler", "Roll", roll, "Pitch", pitch, "Yaw", mag.yaw)
-        -- mahony梯度下降法解算姿态
+        -- madgwick梯度下降法解算姿态
         local roll, pitch, yaw = imu_mag:update(accel.x, accel.y, accel.z, gyro.x, gyro.y, gyro.z, mag.x, mag.y, mag.z, mcu.ticks() - init_ticks)
         init_ticks = mcu.ticks()
         -- log.info("mcu_ticks",init_ticks)
-        log.info("Mahony_Euler", "Roll", roll, "Pitch", pitch, "Yaw", yaw)
+        log.info("madgwick_Euler", "Roll", roll, "Pitch", pitch, "Yaw", yaw)
         sys.wait(100)
     end
 end)

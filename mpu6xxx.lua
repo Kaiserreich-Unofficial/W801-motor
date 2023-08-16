@@ -213,7 +213,7 @@ function mpu6xxx.get_temp()
 end
 
 --[[
-获取加速度计的数据,单位: m/s^2
+获取加速度计的数据,单位: m / s^2
 @api mpu6xxx.get_accel()
 @return table 加速度数据
 @usage
@@ -245,29 +245,5 @@ function mpu6xxx.get_gyro()
     gyro.z = tmp.z*10/MPU6XXX_GYRO_SEN
     return gyro
 end
---[[
-function mpu6xxx.calculate_zero_offs()
-    log.info("MPU6050","计算零偏误差中，请勿移动惯性导航单元...")
-    accel_offs={x=0,y=0,z=0}
-    gyro_offs={x=0,y=0,z=0}
-    for i=1,1000 do
-        local tmp = mpu6xxx_get_accel_raw()
-        accel_offs.x = accel_offs.x + tmp.x*1000/MPU6XXX_ACCEL_SEN
-        accel_offs.y = accel_offs.y + tmp.y*1000/MPU6XXX_ACCEL_SEN
-        accel_offs.z = accel_offs.z + tmp.z*1000/MPU6XXX_ACCEL_SEN
-        local tmp = mpu6xxx_get_gyro_raw()
-        gyro_offs.x = gyro_offs.x + tmp.x*100/MPU6XXX_GYRO_SEN
-        gyro_offs.y = gyro_offs.y + tmp.y*100/MPU6XXX_GYRO_SEN
-        gyro_offs.z = gyro_offs.z + tmp.z*100/MPU6XXX_GYRO_SEN
-    end
-
-    accel_offs.x = accel_offs.x/1000
-    accel_offs.y = accel_offs.y/1000
-    accel_offs.z = accel_offs.z/1000
-    gyro_offs.x = gyro_offs.x/1000
-    gyro_offs.y = gyro_offs.y/1000
-    gyro_offs.z = gyro_offs.z/1000
-    log.info("MPU6050","计算完成！")
-end]]
 
 return mpu6xxx
