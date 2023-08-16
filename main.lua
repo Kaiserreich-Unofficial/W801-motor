@@ -15,6 +15,7 @@ local deg2rad = math.pi / 180 -- 角度转弧度的系数
 
 i2cid = 0
 i2c_speed = i2c.FAST
+init_ticks = mcu.ticks()
 
 -- 初始化GPS串口
 uart.setup(1, 9600)
@@ -78,22 +79,18 @@ sys.subscribe("NTP_ERROR", function()
     socket.sntp()
 end)
 
--- 获取初始姿态四元数
 sys.taskInit(function()
     i2c.setup(i2cid,i2c_speed)
     qmc5883l.init(i2cid)--磁力计初始化,传入i2c_id
     mpu6xxx.init(i2cid)--IMU初始化,传入i2c_id
-    mpu6xxx.calculate_zero_offs() --计算IMU零偏误差
+    -- mpu6xxx.calculate_zero_offs() --计算IMU零偏误差
     local accel = mpu6xxx.get_accel()--获取加速度
-    local gyro = mpu6xxx.get_gyro()--获取陀螺仪
-    local roll = math.atan2(accel.y, accel.z)
-    local pitch = math.atan2((-accel.x), math.sqrt(accel.y^2 + accel.z^2))
-
     -- 读取磁力计数值
     local mag = qmc5883l.get_data()
-    local yaw = math.atan2(mag.y, mag.x) + 0.0404
-    local q0 = mahony:Eulertoquat({roll,pitch,yaw})
-    imu_mag = mahony:new(q0,120)
+    -- 获取初始姿态四元数
+    imu_mag = mahony:new()
+    imu_mag:init_q(accel,mag)
+
     sys.publish("IMU_INIT_OK")
 end)
 
@@ -104,7 +101,7 @@ sys.taskInit(function()
         local accel = mpu6xxx.get_accel()--获取加速度
         local gyro = mpu6xxx.get_gyro()--获取陀螺仪
         local roll = math.atan2(accel.y, accel.z) / deg2rad
-        local pitch = math.atan2((-accel.x), math.sqrt(accel.y^2 + accel.z^2)) / deg2rad
+        local pitch = -math.atan2(accel.x, math.sqrt(accel.y^2 + accel.z^2)) / deg2rad
 
         -- 读取磁力计数值
         local mag = qmc5883l.get_data()
@@ -113,7 +110,9 @@ sys.taskInit(function()
         log.info("GYRO", "x", gyro.x, "y", gyro.y, "z", gyro.z)
         log.info("Raw_Euler", "Roll", roll, "Pitch", pitch, "Yaw", mag.yaw)
         -- mahony梯度下降法解算姿态
-        local roll, pitch, yaw = imu_mag:update(accel.x, accel.y, accel.z, gyro.x, gyro.y, gyro.z, mag.x, mag.y, mag.z)
+        local roll, pitch, yaw = imu_mag:update(accel.x, accel.y, accel.z, gyro.x, gyro.y, gyro.z, mag.x, mag.y, mag.z, mcu.ticks() - init_ticks)
+        init_ticks = mcu.ticks()
+        -- log.info("mcu_ticks",init_ticks)
         log.info("Mahony_Euler", "Roll", roll, "Pitch", pitch, "Yaw", yaw)
         sys.wait(100)
     end

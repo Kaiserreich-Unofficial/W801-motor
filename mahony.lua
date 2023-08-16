@@ -3,8 +3,8 @@ mahony = {}
 _G.sys = require "sys"
 
 local deg2rad = math.pi / 180 -- 角度转弧度的系数
-local twoKp = 2*0.5-- 比例增益 Kp
-local twoKi = 2*0.01-- 积分增益 Ki
+local twoKp = 2*0.75-- 比例增益 Kp
+local twoKi = 2*0.004-- 积分增益 Ki
 -- 按 Ki 缩放的积分误差项
 local integralFBx = 0.0
 local integralFBy = 0.0
@@ -19,12 +19,6 @@ local function quatProd(q1, q2)
     local c = a1 * c2 - b1 * d2 + c1 * a2 + d1 * b2
     local d = a1 * d2 + b1 * c2 - c1 * b2 + d1 * a2
     return {a, b, c, d}
-end
-
--- 定义一个函数，用于计算四元数的共轭
-local function quatConj(q)
-    local a, b, c, d = q[1], q[2], q[3], q[4]
-    return {a, -b, -c, -d}
 end
 
 -- 定义一个函数，用于计算四元数的模长
@@ -42,15 +36,17 @@ end
 
 -- 定义一个函数，用于计算四元数对应的欧拉角（假设为Z-Y-X顺序）
 local function quatToEuler(q)
-    local a, b, c, d = q[1], q[2], q[3], q[4]
-    local roll = math.atan(2 * (a * b + c * d) / (a^2 - b^2 - c^2 + d^2)) / deg2rad
-    local pitch = math.asin(2 * (a * c - b * d)) / deg2rad
-    local yaw = math.atan(2 * (a * d + b * c) / (a^2 + b^2 - c^2 - d^2)) / deg2rad
+    local roll = math.atan2(q[1]*q[2] + q[3]*q[4], 0.5 - q[2]^2 - q[3]^2) / deg2rad
+    local pitch = math.asin(-2.0 * (q[2]*q[4] - q[1]*q[3])) / deg2rad
+    local yaw = math.atan2(q[2]*q[3] + q[1]*q[4], 0.5 - q[3]^2 - q[4]^2)
+    if yaw < 0 then yaw = yaw+2*math.pi
+    elseif yaw > 2*math.pi then yaw = yaw-2*math.pi end
+    yaw = (2*math.pi - yaw) / deg2rad
     return roll, pitch, yaw
 end
 
 -- 定义一个函数，将欧拉角向量转换为四元数向量
-function mahony:Eulertoquat(euler)
+local function Eulertoquat(euler)
     -- 从参数中提取欧拉角的分量
     local alpha, beta, gamma = euler[1], euler[2], euler[3]
     -- 计算绕x轴旋转alpha角度对应的四元数
@@ -59,17 +55,84 @@ function mahony:Eulertoquat(euler)
     local qy = {math.cos(beta/2), 0, math.sin(beta/2), 0}
     -- 计算绕z轴旋转gamma角度对应的四元数
     local qz = {math.cos(gamma/2), 0, 0, math.sin(gamma/2)}
--- 将这三个四元数按照顺序相乘得到最终的四元数
+    -- 将这三个四元数按照顺序相乘得到最终的四元数
     local q = quatProd(quatProd(qz, qy), qx)
     -- 返回结果四元数
     return q
 end
 
+local function vec_cross(A,B)
+    local cross = {nil,nil,nil}
+    cross[1] = A[2] * B[3] - A[3] * B[2]
+	cross[2] = A[3] * B[1] - A[1] * B[3]
+	cross[3] = A[1] * B[2] - A[2] * B[1]
+    return cross
+end
+
+function mahony:init_q(accel,mag)
+    -- 向下为负加速度计测量值
+    local norm_a = math.sqrt(accel.x^2 + accel.y^2 + accel.z^2)
+    accel.x = accel.x / norm_a
+    accel.y = accel.y / norm_a
+    accel.z = accel.z / norm_a
+    -- 磁强计并不完全垂直于 "向下"，因此也不完全是 "向北"
+    local norm_m = math.sqrt(mag.x^2 + mag.y^2 + mag.z^2)
+    mag.x = mag.x / norm_m
+    mag.y = mag.y / norm_m
+    mag.z = mag.z / norm_m
+    local D = {-accel.x,-accel.y,-accel.z}
+    local m = {mag.x,mag.y,mag.z}
+    -- 计算东方向
+    local E = vec_cross(D,m)
+    -- 标准化正东向量
+    local norm_e = math.sqrt(E[1]^2 + E[2]^2 + E[3]^2)
+    E[1] = E[1] / norm_e
+    E[2] = E[2] / norm_e
+    E[3] = E[3] / norm_e
+    -- 计算北方向
+    local N = vec_cross(D,E)
+    -- 根据旋转矩阵 A=(N|D|E)计算欧拉参数（四元数）
+    local Trace = N[1] + D[2] + E[3]
+    local a = {Trace,N[1],D[2],E[3]}
+    local e = {nil,nil,nil,nil}
+    -- 寻找最大欧拉角的下标
+    local k = 1
+    for i=2,4 do
+        if a[i] > a[k] then
+            k = i
+        end
+    end
+
+    e[k] = math.sqrt(1 + 2 * a[k] - Trace)/2;
+
+    if k == 1 then
+        e[2] = (D[3] - E[2]) / (4 * e[1]);
+		e[3] = (E[1] - N[3]) / (4 * e[1]);
+		e[4] = (N[2] - D[1]) / (4 * e[1]);
+    elseif k==2 then
+        e[1] = (D[3] - E[2]) / (4 * e[2]);
+		e[3] = (D[1] + N[2]) / (4 * e[2]);
+		e[4] = (E[1] + N[3]) / (4 * e[2]);
+    elseif k==3 then
+        e[1] = (E[1] - N[3]) / (4 * e[3]);
+        e[2] = (D[1] + N[2]) / (4 * e[3]);
+        e[4] = (E[2] + D[3]) / (4 * e[3]);
+    elseif k==4 then
+        e[1] = (N[2] - D[1]) / (4 * e[4]);
+        e[2] = (E[1] + N[3]) / (4 * e[4]);
+        e[3] = (E[2] + D[3]) / (4 * e[4]);
+    end
+    -- 反转四元数旋转
+	local q0 = e[1];
+	local q1 = -e[2];
+	local q2 = -e[3];
+	local q3 = -e[4];
+    self.q = {q0,q1,q2,q3}
+end
+
 -- 定义 mahony 梯度下降姿态解算算法新实例
-function mahony:new(q0, dt)
+function mahony:new(q0)
     local obj = {}
-    obj.dt = dt or 120 -- 采样间隔时间，单位为 ms
-    obj.dt = obj.dt/1000
     obj.q = q0 or {1,0,0,0} -- 初始化姿态四元数
 
     setmetatable(obj, self) -- 设置实例的元表为类本身
@@ -78,17 +141,18 @@ function mahony:new(q0, dt)
 end
 
 -- 定义一个方法，用于更新四元数和姿态角（欧拉角）
-function mahony:update(ax, ay, az, gx, gy, gz, mx, my, mz)
+function mahony:update(ax, ay, az, gx, gy, gz, mx, my, mz, dt)
+    dt = dt / 1000
     local halfvx, halfvy, halfvz = nil, nil, nil
     local halfwx, halfwy, halfwz = nil, nil, nil
     local halfex, halfey, halfez = nil, nil, nil
     local qa, qb, qc = nil, nil, nil
 
-
     -- 如果加速度计或磁力计数据为零，则直接返回
     if ax == 0 or ay == 0 or az == 0 or mx == 0 or my == 0 or mz == 0 then
         return
     end
+
     -- 归一化加速度计和磁力计数据
     local norm_a = math.sqrt(ax^2 + ay^2 + az^2)
     ax = ax / norm_a
@@ -100,15 +164,15 @@ function mahony:update(ax, ay, az, gx, gy, gz, mx, my, mz)
     mz = mz / norm_m
 
     -- 计算重力方向的参考方向向量（NED坐标系）
-    local hx = mx * self.q[1]^2 - 2 * self.q[1] * my * self.q[4] + 2 * self.q[1] * mz * self.q[3] + mx * self.q[2]^2 + 2 * self.q[2] * my * self.q[3] + 2 * self.q[2] * mz * self.q[4] - mx * self.q[3]^2 - mx * self.q[4]^2
-    local hy = 2 * self.q[1] * mx * self.q[4] + my * self.q[1]^2 - 2 * self.q[1] * mz * self.q[2] + 2 * self.q[2] * mx * self.q[3] - my * self.q[2]^2 + my * self.q[3]^2 + 2 * self.q[3] * mz * self.q[4] - my * self.q[4]^2
+    local hx = 2*(mx*(0.5-self.q[3]^2-self.q[4]^2)+my*(self.q[2]*self.q[3]-self.q[1]*self.q[4])+mz*(self.q[2]*self.q[4]+self.q[1]*self.q[3]))
+    local hy = 2*(mx*(self.q[2]*self.q[3]+self.q[1]*self.q[4])+my*(0.5-self.q[2]^2-self.q[4]^2)+mz*(self.q[3]*self.q[4]-self.q[1]*self.q[2]))
     local bx = math.sqrt(hx^2 + hy^2)
-    local bz = -2 * self.q[1] * mx * self.q[3] + 2 * self.q[1] * my * self.q[2] + mz * self.q[1]^2 + 2 * self.q[2] * mx * self.q[4] - mz * self.q[2]^2 + 2 * self.q[3] * my * self.q[4] - mz * self.q[3]^2 + 2 * self.q[4] * my * self.q[4] - mz * self.q[4]^2
+    local bz = 2*(mx*(self.q[2]*self.q[4]-self.q[1]*self.q[3])+my*(self.q[3]*self.q[4]+self.q[1]*self.q[2])+mz*(0.5-self.q[2]^2-self.q[3]^2))
 
     -- 估计重力和磁场方向
     halfvx = self.q[2] * self.q[4] - self.q[1] * self.q[3]
     halfvy = self.q[1] * self.q[2] + self.q[3] * self.q[4]
-    halfvz = self.q[1]^2 - 0.5 + self.q[3]^2
+    halfvz = self.q[1]^2 - 0.5 + self.q[4]^2
     halfwx = bx * (0.5 - self.q[3]^2 - self.q[4]^2) + bz * (self.q[2]*self.q[4] - self.q[1]*self.q[3])
     halfwy = bx * (self.q[2]*self.q[3] - self.q[1]*self.q[4]) + bz * (self.q[1]*self.q[2] + self.q[3]*self.q[4])
     halfwz = bx * (self.q[1]*self.q[3] + self.q[2]*self.q[4]) + bz * (0.5 - self.q[2]^2 - self.q[3]^2)
@@ -119,9 +183,9 @@ function mahony:update(ax, ay, az, gx, gy, gz, mx, my, mz)
     halfez = (ax * halfvy - ay * halfvx) + (mx * halfwy - my * halfwx)
 
     if twoKi > 0 then
-        integralFBx = integralFBx + twoKi * halfex * self.dt
-        integralFBy = integralFBy + twoKi * halfey * self.dt
-        integralFBz = integralFBz + twoKi * halfez * self.dt
+        integralFBx = integralFBx + twoKi * halfex * dt
+        integralFBy = integralFBy + twoKi * halfey * dt
+        integralFBz = integralFBz + twoKi * halfez * dt
         gx = gx + integralFBx
         gy = gy + integralFBy
         gz = gz + integralFBz
@@ -136,9 +200,9 @@ function mahony:update(ax, ay, az, gx, gy, gz, mx, my, mz)
     gz = gz + twoKp * halfez
 
     -- 积分四元数变化率
-    gx = gx * (0.5 * self.dt)
-    gy = gy * (0.5 * self.dt)
-    gz = gz * (0.5 * self.dt)
+    gx = gx * (0.5 * dt)
+    gy = gy * (0.5 * dt)
+    gz = gz * (0.5 * dt)
     qa = self.q[1]
     qb = self.q[2]
     qc = self.q[3]
@@ -151,7 +215,7 @@ function mahony:update(ax, ay, az, gx, gy, gz, mx, my, mz)
     local norm_q = quatNormalize(self.q)
 
     -- 计算欧拉角
-    local raw, pitch, yaw = quatToEuler(self.q)
+    local raw, pitch, yaw = quatToEuler(norm_q)
 
     -- 返回欧拉角
     return raw, pitch, yaw

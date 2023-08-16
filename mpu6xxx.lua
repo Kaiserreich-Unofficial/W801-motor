@@ -213,7 +213,7 @@ function mpu6xxx.get_temp()
 end
 
 --[[
-获取加速度计的数据,单位: mg
+获取加速度计的数据,单位: m/s^2
 @api mpu6xxx.get_accel()
 @return table 加速度数据
 @usage
@@ -223,9 +223,9 @@ log.info("6050accel", "accel.x",accel.x,"accel.y",accel.y,"accel.z",accel.z)
 function mpu6xxx.get_accel()
     local accel={x=nil,y=nil,z=nil}
     local tmp = mpu6xxx_get_accel_raw()
-    accel.x = tmp.x*1000/MPU6XXX_ACCEL_SEN - accel_offs.x
-    accel.y = tmp.y*1000/MPU6XXX_ACCEL_SEN - accel_offs.y
-    accel.z = tmp.z*1000/MPU6XXX_ACCEL_SEN - accel_offs.z
+    accel.x = tmp.x/ 9.8 /MPU6XXX_ACCEL_SEN
+    accel.y = tmp.y/ 9.8 /MPU6XXX_ACCEL_SEN
+    accel.z = tmp.z/ 9.8 /MPU6XXX_ACCEL_SEN
     return accel
 end
 
@@ -240,12 +240,12 @@ log.info("6050gyro", "gyro.x",gyro.x,"gyro.y",gyro.y,"gyro.z",gyro.z)
 function mpu6xxx.get_gyro()
     local gyro={x=nil,y=nil,z=nil}
     local tmp = mpu6xxx_get_gyro_raw()
-    gyro.x = tmp.x*10/MPU6XXX_GYRO_SEN - gyro_offs.x
-    gyro.y = tmp.y*10/MPU6XXX_GYRO_SEN - gyro_offs.y
-    gyro.z = tmp.z*10/MPU6XXX_GYRO_SEN - gyro_offs.z
+    gyro.x = tmp.x*10/MPU6XXX_GYRO_SEN
+    gyro.y = tmp.y*10/MPU6XXX_GYRO_SEN
+    gyro.z = tmp.z*10/MPU6XXX_GYRO_SEN
     return gyro
 end
-
+--[[
 function mpu6xxx.calculate_zero_offs()
     log.info("MPU6050","计算零偏误差中，请勿移动惯性导航单元...")
     accel_offs={x=0,y=0,z=0}
@@ -256,9 +256,9 @@ function mpu6xxx.calculate_zero_offs()
         accel_offs.y = accel_offs.y + tmp.y*1000/MPU6XXX_ACCEL_SEN
         accel_offs.z = accel_offs.z + tmp.z*1000/MPU6XXX_ACCEL_SEN
         local tmp = mpu6xxx_get_gyro_raw()
-        gyro_offs.x = gyro_offs.x + tmp.x*10/MPU6XXX_GYRO_SEN
-        gyro_offs.y = gyro_offs.y + tmp.y*10/MPU6XXX_GYRO_SEN
-        gyro_offs.z = gyro_offs.z + tmp.z*10/MPU6XXX_GYRO_SEN
+        gyro_offs.x = gyro_offs.x + tmp.x*100/MPU6XXX_GYRO_SEN
+        gyro_offs.y = gyro_offs.y + tmp.y*100/MPU6XXX_GYRO_SEN
+        gyro_offs.z = gyro_offs.z + tmp.z*100/MPU6XXX_GYRO_SEN
     end
 
     accel_offs.x = accel_offs.x/1000
@@ -268,6 +268,6 @@ function mpu6xxx.calculate_zero_offs()
     gyro_offs.y = gyro_offs.y/1000
     gyro_offs.z = gyro_offs.z/1000
     log.info("MPU6050","计算完成！")
-end
+end]]
 
 return mpu6xxx

@@ -108,10 +108,10 @@ function qmc5883l.get_data()
     i2c.send(i2cid, QMC5883L_ADDRESS_ADR,QMC5883L_X_LSB)
     local data = i2c.recv(i2cid, QMC5883L_ADDRESS_ADR, 6)
     _, qmc5883l_data.x, qmc5883l_data.y, qmc5883l_data.z = pack.unpack(data, "<h3")
-    local heading = math.atan (qmc5883l_data.y ,qmc5883l_data.x)
+    local heading = math.atan2(qmc5883l_data.y, qmc5883l_data.x)
     qmc5883l_data.heading = heading
     local declinationAngle = 0.0404
-    heading = heading+declinationAngle
+    heading = heading + declinationAngle
     if heading < 0 then heading = heading+2*math.pi end
     if heading > 2*math.pi then heading = heading-2*math.pi end
     qmc5883l_data.yaw = heading * 180/math.pi
